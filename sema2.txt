@@ -1,0 +1,62 @@
+#include <stdio.h>
+#include <pthread.h>
+
+typedef struct {
+    int value;
+    pthread_mutex_t mutex;
+    pthread_cond_t condition;
+} binary_semaphore_t;
+
+void initialize(binary_semaphore_t* semaphore) {
+    semaphore->value = 1;
+    pthread_mutex_init(&(semaphore->mutex), NULL);
+    pthread_cond_init(&(semaphore->condition), NULL);
+}
+
+void p(binary_semaphore_t* semaphore) {
+    pthread_mutex_lock(&(semaphore->mutex));
+    while (semaphore->value == 0) {
+        pthread_cond_wait(&(semaphore->condition), &(semaphore->mutex));
+    }
+    semaphore->value = 0;
+    pthread_mutex_unlock(&(semaphore->mutex));
+}
+
+void v(binary_semaphore_t* semaphore) {
+    pthread_mutex_lock(&(semaphore->mutex));
+    semaphore->value = 1;
+    pthread_cond_signal(&(semaphore->condition));
+    pthread_mutex_unlock(&(semaphore->mutex));
+}
+
+binary_semaphore_t semaphore;
+
+void* thread_function(void* arg) {
+    printf("Thread is waiting for semaphore...\n");
+    p(&semaphore); // Acquire the semaphore
+    printf("Semaphore acquired by thread!\n");
+    // Perform critical section
+    printf("Thread is releasing semaphore...\n");
+    v(&semaphore); // Release the semaphore
+    printf("Semaphore released by thread!\n");
+    pthread_exit(NULL);
+}
+
+int main() {
+    pthread_t thread;
+    initialize(&semaphore);
+    
+    pthread_create(&thread, NULL, thread_function, NULL);
+    
+    printf("Main thread is waiting for semaphore...\n");
+    p(&semaphore); // Acquire the semaphore
+    printf("Semaphore acquired by main thread!\n");
+    // Perform critical section
+    printf("Main thread is releasing semaphore...\n");
+    v(&semaphore); // Release the semaphore
+    printf("Semaphore released by main thread!\n");
+    
+    pthread_join(thread, NULL);
+    
+    return 0;
+}
